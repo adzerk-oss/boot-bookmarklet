@@ -51,7 +51,15 @@ boot bookmarklet -i foo -i bar target
 
 ## Example
 
-*An example project is in the works. Stay tuned!*
+The simplest of ClojureScript bookmarklets might look something like this:
+
+```clojure
+(ns example.bookmarklet)
+
+(js/alert "o hai!")
+```
+
+*A more complex example project is in the works. Stay tuned!*
 
 ## Contributing
 
