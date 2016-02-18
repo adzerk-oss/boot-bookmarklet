@@ -4,7 +4,8 @@
             [boot.core        :as    core]
             [boot.util        :as    util]
             [clojure.java.io  :as    io]
-            [clojure.string   :as    str]))
+            [clojure.string   :as    str]
+            [cemerick.url     :refer (url-encode)]))
 
 (defn cljs-files-by-id
   "(stolen from boot-cljs, modified 'main-files')"
@@ -64,10 +65,7 @@
 
 (defn bookmarklet-link
   [js-file]
-  (let [js-code (-> (slurp (core/tmp-file js-file))
-                    (str/replace #"(?m)^\s*//.*" " ")
-                    (str/replace #"\n" " ")
-                    (str/replace #"\"" "&quot;"))]
+  (let [js-code (url-encode (slurp (core/tmp-file js-file)))]
     (format "<div>\n<a href=\"javascript: %s\">\n<h1>%s</h1>\n</a>\n</div>\n"
             js-code
             (.getName (core/tmp-file js-file)))))
