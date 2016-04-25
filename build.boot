@@ -8,7 +8,7 @@
 
 (require '[adzerk.bootlaces :refer :all])
 
-(def +version+ "0.1.1")
+(def +version+ "0.2.0")
 
 (task-options!
   pom {:project     'adzerk/boot-bookmarklet

@@ -7,7 +7,7 @@
             [clojure.string   :as    str]
             [cemerick.url     :refer (url-encode)]))
 
-(defn cljs-files-by-id
+(defn- cljs-files-by-id
   "(stolen from boot-cljs, modified 'main-files')"
   [fileset ids]
   (let [re-pat #(re-pattern (str "\\Q" % "\\E\\.cljs$"))]
@@ -16,7 +16,7 @@
          (core/by-re (map re-pat ids))
          (sort-by :path))))
 
-(defn path->js
+(defn- path->js
   "Given a path to a cljs namespace source file, returns the corresponding
    Google Closure namespace name for goog.provide() or goog.require().
 
@@ -63,42 +63,77 @@
             (spit (cljs-edn-for cljs))))
         (-> fileset (core/add-source tmp-main) core/commit!)))))
 
-(defn bookmarklet-link
+(defn- bookmarklet-link
   [js-file]
   (let [js-code (url-encode (slurp (core/tmp-file js-file)))]
     (format "<div>\n<a href=\"javascript: %s\">\n<h1>%s</h1>\n</a>\n</div>\n"
             js-code
             (.getName (core/tmp-file js-file)))))
 
-(core/deftask ^:private generate-html
-  []
-  (let [tmp-main (core/tmp-dir!)]
-    (core/with-pre-wrap fileset
-      (core/empty-dir! tmp-main)
-      (let [cljs-edn-paths (->> fileset
-                                core/input-files
-                                (core/by-ext ["cljs.edn"])
-                                (sort-by :path)
-                                (map (comp #(str/replace % #"\.cljs\.edn" ".js")
-                                           core/tmp-path)))
-            js-files   (->> fileset
+(defn- bookmarklet-links
+  [fileset]
+  (let [cljs-edn-paths (->> fileset
+                            core/input-files
+                            (core/by-ext ["cljs.edn"])
+                            (sort-by :path)
+                            (map (comp #(str/replace % #"\.cljs\.edn" ".js")
+                                       core/tmp-path)))
+        js-files       (->> fileset
                             core/output-files
                             (filter (comp (set cljs-edn-paths) core/tmp-path))
-                            (sort-by :path))
-            html-file (io/file tmp-main "bookmarklets.html")]
-        (util/info "Writing %s...\n" (.getName html-file))
-        (doto html-file
-          (io/make-parents)
-          (spit "<html>\n<head>\n<title>Bookmarklets</title>\n</head>\n<body>\n"))
-        (doseq [js js-files]
-          (spit html-file (bookmarklet-link js) :append true))
-        (spit html-file "</body>\n</html>" :append true)
-        (-> fileset (core/add-resource tmp-main) core/commit!)))))
+                            (sort-by :path))]
+    (apply str (map bookmarklet-link js-files))))
+
+(defn- external-bookmarklet-link
+  [js-url]
+  (let [filename (->> js-url
+                      (re-matches #".*/(.*)")
+                      last)
+        js-code  (-> (str "(function () { "
+                          "var jsCode = document.createElement('script'); "
+                          "jsCode.setAttribute('src', '%s'); "
+                          "document.body.appendChild(jsCode); }());")
+                     (format js-url)
+                     url-encode)]
+    (format "<div>\n<a href=\"javascript: %s\">\n<h1>%s</h1>\n</a>\n</div>\n"
+            js-code
+            filename)))
+
+(defn- external-bookmarklet-links
+  [urls]
+  (apply str (map external-bookmarklet-link urls)))
+
+(defn- generate-html
+  [fileset html-content]
+  (let [tmp-main  (core/tmp-dir!)
+        _         (core/empty-dir! tmp-main)
+        html-file (io/file tmp-main "bookmarklets.html")]
+    (util/info "Writing %s...\n" (.getName html-file))
+    (doto html-file
+      (io/make-parents)
+      (spit "<html>\n<head>\n<title>Bookmarklets</title>\n</head>\n<body>\n")
+      (spit html-content :append true)
+      (spit "</body>\n</html>" :append true))
+    (-> fileset (core/add-resource tmp-main) core/commit!)))
 
 (core/deftask bookmarklet
+  "Compiles cljs -> js and generates bookmarklets.html, a simple page
+   containing a link to each compiled .js file.
+
+   If --ids are supplied (each a string representing a cljs namespace), each
+   namespace is turned into a bookmarklet.
+
+   If no --ids are supplied, makes a bookmarklet out of every .cljs input file."
   [i ids IDS #{str} "The cljs namespaces to turn into bookmarklets."]
   (comp
     (generate-cljs-edn :ids ids)
     (cljs)
-    (generate-html)))
+    (core/with-pre-wrap fileset
+      (generate-html fileset (bookmarklet-links fileset)))))
 
+(core/deftask external-bookmarklet
+  "Generates bookmarklets.html, a simple page containing a bookmarklet link for
+   each supplied URL to a hosted .js file."
+  [u urls URLS #{str} "The URLs to hosted .js files to be loaded by bookmarklets."]
+  (core/with-pre-wrap fileset
+    (generate-html fileset (external-bookmarklet-links (or urls #{})))))

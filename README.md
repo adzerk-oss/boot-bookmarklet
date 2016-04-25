@@ -10,10 +10,22 @@ Add `adzerk/boot-bookmarklet` to your `build.boot` dependencies and require/refe
 
 ```clojure
 (set-env! :dependencies '[[adzerk/boot-bookmarklet "X.Y.Z" :scope "test"]])
-(require '[adzerk.boot-bookmarklet :refer :all])
+(require '[adzerk.boot-bookmarklet :refer (bookmarklet external-bookmarklet)])
 ```
 
-This makes the `bookmarklet` task available. This task takes an (optional) option `:id` which is a set of strings identifying cljs files on the source path:
+### Tasks
+
+* `bookmarklet` compiles your ClojureScript into JavaScript and stuffs the code for each namespace into a `javascript:<CODE HERE>` bookmarklet link.
+
+  `bookmarklet` is convenient if your bookmarklet happens to be small enough that the compiled, URL-encoded JavaScript can fit in the bookmarklet link. [The character limit for a bookmarklet link varies from browser to browser](http://subsimple.com/bookmarklets/rules.php#CharLimit).
+
+* `external-bookmarklet` takes any number of URLs to hosted .js files and generates a bookmarklet link for each file that sources and runs it.
+
+  Once your code reaches a certain size, you will hit the character limit and your bookmarklet won't work anymore. To get around this, you can host your compiled .js file somewhere (e.g. Dropbox, S3) and use `external-bookmarklet` to generate a small bookmarklet that simply loads the hosted .js file.
+
+### `bookmarklet`
+
+The `bookmarklet` task takes an (optional) option `:ids` which is a set of strings identifying cljs files on the source path:
 
 ```clojure
 (deftask build
@@ -27,7 +39,7 @@ This makes the `bookmarklet` task available. This task takes an (optional) optio
 
 This will match a file `lobster.cljs` if it exists in the source paths.
 
-When run, this task will compile the namespace of each ClojureScript file into a standalone JavaScript file (compiled with advanced optimizations), read the contents of the file, and generate an HTML file at the root of the fileset called `bookmarklets.html`, containing a bookmarklet link for each ClojureScript file identified in `:ids`.
+When run, this task will compile the namespace of each ClojureScript file into a standalone JavaScript file (compiled with advanced optimizations), read the contents of the file, and generate an HTML file called `bookmarklets.html`, containing a bookmarklet link for each ClojureScript file identified in `:ids`.
 
 You can then open `target/bookmarklets.html` in your browser and drag the bookmarklet link into your bookmarks.
 
@@ -48,6 +60,23 @@ You can, of course, also run the `bookmarklet` task from the command-line:
 ```
 boot bookmarklet -i foo -i bar target
 ```
+
+### `external-bookmarklet`
+
+In order to use `external-bookmarklet`, your bookmarklet code must already be compiled to JavaScript and hosted somewhere. Once you have the URL to your hosted .js file, you can provide it to `external-bookmarklet` via the `-u/--urls` option, and it will generate a `bookmarklets.html` file containing a bookmarklet link which, when clicked, will fetch and run your hosted .js file in the context of the current page.
+
+```
+boot external-bookmarklet -u http://path.to/my/hosted.js
+```
+
+```
+(deftask link
+  (external-bookmarklet :urls #{"http://path.to/my/hosted.js"}))
+```
+
+If you provide multiple URLs, the generated HTML file will contain one bookmarklet link per .js file.
+
+*TODO: example build task that watches for changes, updates the hosted.js, and generates bookmarklets.html with an external bookmarklet*
 
 ## Example
 
