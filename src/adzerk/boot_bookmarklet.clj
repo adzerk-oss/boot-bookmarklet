@@ -66,7 +66,7 @@
 (defn- bookmarklet-link
   [js-file]
   (let [js-code (url-encode (slurp (core/tmp-file js-file)))]
-    (format "<div>\n<a href=\"javascript: %s\">\n<h1>%s</h1>\n</a>\n</div>\n"
+    (format "<div>\n<h1>\n<a href=\"javascript: %s\">\n%s\n</a>\n</h1>\n</div>\n"
             js-code
             (.getName (core/tmp-file js-file)))))
 
@@ -95,7 +95,7 @@
                           "document.body.appendChild(jsCode); }());")
                      (format js-url)
                      url-encode)]
-    (format "<div>\n<a href=\"javascript: %s\">\n<h1>%s</h1>\n</a>\n</div>\n"
+    (format "<div>\n<h1>\n<a href=\"javascript: %s\">\n%s\n</a>\n</h1>\n</div>\n"
             js-code
             filename)))
 
